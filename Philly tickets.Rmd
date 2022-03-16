@@ -1,0 +1,41 @@
+---
+title: "Philly Tickets"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+
+tickets <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-12-03/tickets.csv")
+
+
+by_type<-tickets %>%
+  group_by(violation_desc) %>%
+  tally() %>%
+  arrange(desc(n)) %>%
+  mutate(percent=round(n/(sum(n))*100, 1))
+by_type
+
+
+sub_by_type<- by_type[1:15,]
+
+
+library(RColorBrewer)
+cols <- 15
+mycolors <- colorRampPalette(brewer.pal(8, "Dark2"))(cols)
+
+
+p<-ggplot(data=sub_by_type, aes(reorder(x=violation_desc, percent), y=percent, fill=violation_desc)) +
+  geom_bar(stat="identity", show.legend = FALSE) +
+theme_minimal() +
+  coord_flip() +
+  scale_fill_manual(values = mycolors) +
+  labs(title = "Most common parking tickets in Philly") +
+  xlab(NULL)
+p
+```
+
