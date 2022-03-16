@@ -1,0 +1,86 @@
+---
+title: "Giant Pumkins!"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggthemr)
+ggthemr("dust")
+```
+
+
+```{r}
+# Get the Data
+
+pumpkins <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-10-19/pumpkins.csv')
+```
+
+```{r}
+pumpkins_agg <- pumpkins %>%
+  separate(id, c("year", "type")) %>%
+  group_by(year, type) %>%
+  summarise(mean=mean(as.numeric(weight_lbs), na.rm = TRUE))
+```
+
+```{r}
+pumpkins_agg %>%
+  filter(type!="L") %>%
+  ggplot(aes(x = as.numeric(year), y =mean, color=type)) + 
+    geom_line(size=0.5) +
+  scale_x_continuous(breaks=c(2013:2021)) +
+  scale_fill_discrete(breaks = c("Field Pumpkin","Giant Pumpkin","Giant Squash","Tomato","Giant Watermelon")) +
+  ylab("Mean weight (lbs)")+
+  xlab("Year") +
+  ggtitle("The Greatest Pumpkin? Eat you're heart out Charlie Brown!")
+```
+
+```{r}
+pumpkin_seed<- pumpkins %>%
+  mutate(new_seed_mother = toupper(seed_mother)) %>%
+  mutate(new_seed_mother= gsub('[[:digit:]]+', '', new_seed_mother)) %>%
+  mutate(new_seed_mother= gsub('.*? ', '', new_seed_mother))
+
+
+pumpkin_seed_agg<- pumpkin_seed %>%
+  group_by(new_seed_mother) %>%
+  tally() %>%
+  arrange(desc(n)) %>%
+  filter(n %in% 100:500 & !(new_seed_mother %in% c(".", "-", "'")))
+  
+
+pumpkin_names<- pumpkin_seed_agg$new_seed_mother
+
+
+seed_relate<- pumpkin_seed %>%
+  filter(new_seed_mother %in% pumpkin_names) %>%
+  select(grower_name, new_seed_mother)
+```
+
+```{r}
+library(igraph)
+
+g<- graph_from_data_frame(seed_relate, directed=FALSE)
+
+V(g)$type <- bipartite_mapping(g)$type
+
+plot(g, vertex.label.cex = 0.08, vertex.label.color = "black")
+```
+
+```{r}
+V(g)$color <- ifelse(V(g)$type, "lightblue", "salmon")
+V(g)$shape <- ifelse(V(g)$type, "circle", "square")
+E(g)$color <- "lightgray"
+
+plot(g, vertex.label.cex = 0.08, vertex.label.color = "black", layout = layout_with_graphopt)
+
+
+
+
+
+```
+
