@@ -121,6 +121,8 @@ rolling_stone_long %>%
   theme(legend.position = "bottom")+
   guides(fill = guide_legend(title = NULL)) +
   geom_text(aes(x=genre_clean, label = clean_name, y = 10), position = position_dodge(0.85), angle=90, size=5,  hjust = 'left')
+
+ggsave("rolling_stone_top500.png")
   
 ```
 
