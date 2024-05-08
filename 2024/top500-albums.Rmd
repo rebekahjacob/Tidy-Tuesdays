@@ -116,7 +116,7 @@ And another annoyance is the location of the artist label. For another day will 
 rolling_stone_long %>%
   ggplot(aes(x=genre_clean, y=avg_rank, fill=artist_gender_plus)) +
   geom_bar(position = position_dodge2(preserve = "single"), stat = "identity") +
-  labs(x = "Genre", y = "Average Rank") +
+  labs(x = "Genre and Gender/Group", y = "Average Rank") +
   ggtitle("Average album rank by genre and artist gender (2003, 20012, 2020)") +
   theme(legend.position = "bottom")+
   guides(fill = guide_legend(title = NULL)) +
