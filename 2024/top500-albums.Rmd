@@ -1,0 +1,126 @@
+---
+title: "Tidy Tuesday 5-7-24"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggthemr)
+ggthemr("flat dark")
+```
+
+```{r}
+rolling_stone <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2024/2024-05-07/rolling_stone.csv')
+```
+
+### Checking out genre
+
+There are some with small numbers, so I'm going to ask ChatGPT to give me a smaller grouping.
+```{r}
+summary(factor(rolling_stone$genre))
+```
+
+Here is what ChatGPT says. Not perfect, but I don't have much time!
+
+Creating a new war called `genre_clean`.
+
+This actually usually breaks my variable naming schemes, but again, I don't have much time!
+```{r}
+rolling_stone<- rolling_stone %>%
+  mutate(genre_clean=case_when(
+    genre %in% c("Big Band/Jazz", "Blues/Blues Rock", "Blues/Blues ROck")~"Jazz/Blues",
+    genre %in% c("Hard Rock/Metal", "Rock n' Roll/Rhythm & Blues")~"Rock and Subgenres",
+    genre %in% c("Indie/Alternative Rock", "Punk/Post-Punk/New Wave/Power Pop", "Electronic") ~"Pop and Alternative",
+    genre %in% c("Afrobeat","Latin", "Reggae") ~"World",
+    genre %in% c("Country/Folk/Country Rock/Folk Rock", "Singer-Songwriter/Heartland Rock") ~"Folk/Country",
+    genre %in% c("Soul/Gospel/R&B", "Hip-Hop/Rap", "Funk/Disco")~"Soul/R&B/Hip-Hop"
+  ))
+
+summary(factor(rolling_stone$genre_clean))
+```
+
+### Look at gender
+
+I'm interested that there are sooo few female artists that had albums in the top 500. That makes me mad and gives me an idea to look at gender by solo artist or group.
+```{r}
+summary(factor(rolling_stone$artist_gender))
+```
+Here's the summary on number of artists in group.
+```{r}
+summary(rolling_stone$artist_member_count)
+```
+### Create gender/group intersection variable
+
+I'm going to use it to create a new varibale `artist_gender_plus` that intersects gender and solo/group designation.
+```{r}
+rolling_stone<- rolling_stone %>%
+  mutate(artist_gender_plus=factor(case_when(
+    artist_gender=="Female" & artist_member_count==1~"Female, Solo",
+    artist_gender=="Male" & artist_member_count==1~"Male, Solo",
+    artist_gender=="Male" & artist_member_count>1~"Male-led Group",
+    artist_gender=="Female" & artist_member_count>1~"Female-led Group",
+    artist_gender=="Male/Female" & artist_member_count>1~"Male/Female-led Group"
+  ), levels=c("Female, Solo", "Male, Solo", "Male-led Group", "Female-led Group", "Male/Female-led Group")))
+
+summary(rolling_stone$artist_gender_plus)
+```
+### Examine top artists in each genre group by gender/group 
+
+Now I us these new variables to pull out the top ranking artist in each genre. But what year? Let's look across all three ranking years and pick the artist that has the lowest (most popular) ranking for each genre and gender/group specification.
+
+To do this, I first pivot the table longer by rank so I can sort and pull the top (atually the smallest rank-- notice "-1").
+```{r}
+top_artists<- rolling_stone %>%
+  pivot_longer(cols = starts_with("rank"), names_to = "rank_yr", values_to = "rank") %>%
+  group_by(artist_gender_plus, genre_clean) %>%
+  top_n(-1, rank) %>%
+  select(clean_name, genre_clean, artist_gender_plus, rank) %>%
+  arrange(artist_gender_plus, genre_clean) %>%
+  filter(!is.na(genre_clean), !is.na(artist_gender_plus)) %>%
+  distinct(genre_clean, artist_gender_plus, .keep_all = T)
+```
+
+### Examine average rank by genre and gender/group 
+
+I kind of did this in disjointed parts.
+
+It would have been better to do this all in the same chain of code, but I was still trying to decide what to look at and I'm out of time, so here is the average ranking code that I then slapped together at the end with the top artists because I decided later that I wanted to add the top artists labels to the figure.
+```{r}
+rolling_stone_long<- rolling_stone %>%
+  pivot_longer(cols = starts_with("rank"), names_to = "rank_yr", values_to = "rank") %>%
+  group_by(artist_gender_plus, genre_clean) %>%
+  summarise(num=n(),
+            avg_rank=mean(rank, na.rm = T)) %>%
+  filter(!is.na(genre_clean) & !is.na(artist_gender_plus)) %>%
+  arrange(artist_gender_plus, genre_clean)
+
+
+rolling_stone_long<- list(rolling_stone_long, top_artists) %>%
+  reduce(full_join, by=c("genre_clean", "artist_gender_plus"))
+
+```
+
+### Creating a nice figure
+
+I'm lazy with design and have found using the `ggthemr` package suoer helpful in chosing a nice color and fonts that I can live with.
+
+This figure is kind of strange because lower averages would indicate higher popularity. That will be a task for another day.
+
+And another annoyance is the location of the artist label. For another day will be playing with it to get it to work.
+
+```{r fig.width=12, fig.height=5}
+rolling_stone_long %>%
+  ggplot(aes(x=genre_clean, y=avg_rank, fill=artist_gender_plus)) +
+  geom_bar(position = position_dodge2(preserve = "single"), stat = "identity") +
+  labs(x = "Genre", y = "Average Rank") +
+  ggtitle("Average album rank by genre and artist gender (2003, 20012, 2020)") +
+  theme(legend.position = "bottom")+
+  guides(fill = guide_legend(title = NULL)) +
+  geom_text(aes(x=genre_clean, label = clean_name, y = 10), position = position_dodge(0.85), angle=90, size=5,  hjust = 'left')
+  
+```
+
